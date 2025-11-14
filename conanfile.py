@@ -3,8 +3,10 @@ from conan.tools.cmake import CMakeToolchain, CMake, CMakeDeps, cmake_layout
 from typing import Literal
 from pathlib import Path
 import yaml
+import json
 import os
 sep = os.path.sep
+_get_root_path_list = (lambda : (Path(__file__).__str__()).split(sep)[:-1])
 
 
 white_list = {f'<{_}>' for _ in ['algorithm', 'array', 'chrono', 'cmath', 'functional', 'memory', 'optional',
@@ -16,9 +18,21 @@ _is_valid_import = (lambda x, c: x.startswith('#include ') and x[9:].strip() in 
 conan_targets = {
     'Eigen3::Eigen': 'eigen::eigen',
     'ZLIB::ZLIB': 'zlib::zlib',
-    'Catch2::Catch2': 'catch2::catch2',
-    'Catch2::Catch2WithMain': 'catch2::catch2_with_main'
+    'Catch2::Catch2': 'catch2::catch2'
 }
+
+
+def _get_root_path() -> str:
+    return sep.join(_get_root_path_list())
+
+
+def _inherit_root_metadata():
+    with open(_get_root_path() + sep + 'metadata.json', 'r', encoding='utf-8') as f:
+        _meta = json.load(f)
+    return _meta
+
+
+_metadata = _inherit_root_metadata()
 
 
 def _get_export_objects(x: list[str], tag: Literal['@exporter', '@attacher'] = '@exporter') -> list[str]:
@@ -76,7 +90,7 @@ class PackageRecipe(ConanFile):
     # Binary configuration
     settings = "os", "compiler", "build_type", "arch"
     options = {"shared": [True, False], "fPIC": [True, False]}
-    default_options = {"shared": False, "fPIC": True}
+    default_options = {"shared": _metadata.get('is_shared'), "fPIC": True}  # inherit from config
 
     # Sources are located in the same place as this recipe, copy them to the recipe
     exports_sources = ["CMakeLists.txt", "src/*", "include/*", "metadata.json", "LICENSE"]
@@ -209,8 +223,6 @@ class PackageRecipe(ConanFile):
     def generate(self):
         tc = CMakeToolchain(self)
         tc.variables['C_DEPS'], tc.variables['CPP_DEPS'] = self._preparing_deps_links()
-        if self.options.shared:
-            tc.variables['SHARED_MSG'] = 'Conan: shared=True is not supported due to complexity in this frame;'
         tc.generate()
         deps = CMakeDeps(self)
         deps.generate()

@@ -5,6 +5,7 @@ string(JSON TARGET_NAMESPACE_VALUE ERROR_VARIABLE json_error GET "${METADATA_JSO
 string(JSON PROJECT_VERSION_VALUE ERROR_VARIABLE json_error GET "${METADATA_JSON}" "version")
 string(JSON BUILD_CPPSTD ERROR_VARIABLE json_error GET "${METADATA_JSON}" "build_cppstd")
 string(JSON BUILD_CSTD ERROR_VARIABLE json_error GET "${METADATA_JSON}" "build_cstd")
+string(JSON IS_SHARED ERROR_VARIABLE json_error GET "${METADATA_JSON}" "is_shared")
 string(JSON STD_MODULES ERROR_VARIABLE json_error GET "${METADATA_JSON}" "std_modules")
 set(LIB_NAME "${PROJECT_NAME_VALUE}")
 if(NOT TARGET_NAMESPACE_VALUE STREQUAL "auto")
@@ -100,10 +101,22 @@ file(GLOB_RECURSE MODULE_FILES
         PATHS "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
+if(WIN32)
+    if(IS_SHARED)
+        set(IS_SHARED OFF)
+        message(WARNING "Shared build is not supported on Windows! use static instead")
+    endif()
+endif()
+
+if(IS_SHARED)
+    set(BUILD_TYPE "SHARED")
+else()
+    set(BUILD_TYPE "STATIC")
+endif()
 
 # dynamically create lib targets
-add_library(${LIB_NAME}_c STATIC ${C_SOURCES})
-add_library(${LIB_NAME}_cpp STATIC ${CPP_SOURCES} ${MODULE_FILES})
+add_library(${LIB_NAME}_c ${BUILD_TYPE} ${C_SOURCES})
+add_library(${LIB_NAME}_cpp ${BUILD_TYPE} ${CPP_SOURCES} ${MODULE_FILES})
 add_library(${LIB_NAME} INTERFACE)
 
 if(NOT C_DEPS STREQUAL "[]")
